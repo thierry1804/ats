@@ -1,36 +1,123 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 
+// Load environment variables
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// Initialize Gemini AI with API key
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 interface DetailedAnalysis {
-  relevanceScore: number;
-  keyFindings: string[];
-  suggestedImprovements: string[];
-  skillsAnalysis: {
-    technical: string[];
-    soft: string[];
-    missing: string[];
-  };
-  experienceAnalysis: {
-    strengths: string[];
-    gaps: string[];
+  matchScore: number;
+  missingKeywords: string[];
+  strongMatches: string[];
+  aiAnalysis: {
+    keyFindings: string[];
+    suggestedImprovements: string[];
+    skillsAnalysis: {
+      technical: string[];
+      soft: string[];
+      missing: string[];
+      recommendations: string[];
+    };
+    experienceAnalysis: {
+      strengths: string[];
+      gaps: string[];
+      recommendations: string[];
+    };
   };
 }
 
 function cleanJsonResponse(text: string): string {
-  // Remove markdown code blocks if present
-  let cleanText = text.replace(/```json\n?/gi, '').replace(/```\n?/g, '');
+  // Remove any text before the first {
+  const startIndex = text.indexOf('{');
+  if (startIndex === -1) {
+    throw new Error('No JSON object found in response');
+  }
   
-  // Remove any leading/trailing whitespace
-  cleanText = cleanText.trim();
+  // Remove any text after the last }
+  const endIndex = text.lastIndexOf('}');
+  if (endIndex === -1) {
+    throw new Error('Invalid JSON format: missing closing brace');
+  }
   
-  // If the text starts with a newline, remove it
-  cleanText = cleanText.replace(/^\n+/, '');
+  // Extract just the JSON part
+  const jsonText = text.substring(startIndex, endIndex + 1);
   
-  return cleanText;
+  // Remove any markdown code block markers
+  return jsonText.replace(/```json\n?|```\n?/g, '').trim();
+}
+
+function validateAnalysisResponse(data: any): DetailedAnalysis {
+  // Check if all required fields are present
+  const requiredFields = [
+    'matchScore',
+    'missingKeywords',
+    'strongMatches',
+    'aiAnalysis'
+  ];
+
+  for (const field of requiredFields) {
+    if (!(field in data)) {
+      throw new Error(`Missing required field: ${field}`);
+    }
+  }
+
+  // Validate matchScore
+  if (typeof data.matchScore !== 'number' || data.matchScore < 0 || data.matchScore > 100) {
+    throw new Error('matchScore must be a number between 0 and 100');
+  }
+
+  // Validate arrays
+  const arrayFields = ['missingKeywords', 'strongMatches'];
+  for (const field of arrayFields) {
+    if (!Array.isArray(data[field])) {
+      throw new Error(`${field} must be an array`);
+    }
+    if (!data[field].every(item => typeof item === 'string')) {
+      throw new Error(`All items in ${field} must be strings`);
+    }
+  }
+
+  // Validate aiAnalysis
+  if (typeof data.aiAnalysis !== 'object' || data.aiAnalysis === null) {
+    throw new Error('aiAnalysis must be an object');
+  }
+
+  // Validate aiAnalysis fields
+  const aiAnalysisFields = ['keyFindings', 'suggestedImprovements'];
+  for (const field of aiAnalysisFields) {
+    if (!Array.isArray(data.aiAnalysis[field])) {
+      throw new Error(`aiAnalysis.${field} must be an array`);
+    }
+    if (!data.aiAnalysis[field].every(item => typeof item === 'string')) {
+      throw new Error(`All items in aiAnalysis.${field} must be strings`);
+    }
+  }
+
+  // Validate skillsAnalysis
+  const skillsFields = ['technical', 'soft', 'missing', 'recommendations'];
+  for (const field of skillsFields) {
+    if (!Array.isArray(data.aiAnalysis.skillsAnalysis[field])) {
+      throw new Error(`aiAnalysis.skillsAnalysis.${field} must be an array`);
+    }
+    if (!data.aiAnalysis.skillsAnalysis[field].every(item => typeof item === 'string')) {
+      throw new Error(`All items in aiAnalysis.skillsAnalysis.${field} must be strings`);
+    }
+  }
+
+  // Validate experienceAnalysis
+  const expFields = ['strengths', 'gaps', 'recommendations'];
+  for (const field of expFields) {
+    if (!Array.isArray(data.aiAnalysis.experienceAnalysis[field])) {
+      throw new Error(`aiAnalysis.experienceAnalysis.${field} must be an array`);
+    }
+    if (!data.aiAnalysis.experienceAnalysis[field].every(item => typeof item === 'string')) {
+      throw new Error(`All items in aiAnalysis.experienceAnalysis.${field} must be strings`);
+    }
+  }
+
+  return data as DetailedAnalysis;
 }
 
 export async function analyzeWithGemini(
@@ -41,28 +128,77 @@ export async function analyzeWithGemini(
     const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
     const prompt = `
-      You are an ATS (Applicant Tracking System) expert. Analyze the following resume and job description.
-      Return ONLY a JSON response (no markdown, no explanations) in the exact format shown below:
+      Tu es un expert en recrutement et en analyse de CV avec plus de 20 ans d'expérience.
+      Analyse en détail le CV et la description du poste fournis ci-dessous.
+      Fournis une analyse APPROFONDIE et des recommandations SPÉCIFIQUES et ACTIONNABLES.
 
-      Resume text:
+      CV à analyser:
       ${resumeText}
 
-      Job Description:
+      Description du poste:
       ${jobDescription}
 
-      Required JSON format (maintain this exact structure):
+      IMPORTANT: 
+      1. Ta réponse doit être UNIQUEMENT un objet JSON valide, sans aucun texte avant ou après.
+      2. N'utilise PAS de blocs de code markdown.
+      3. Utilise UNIQUEMENT des guillemets droits (") pour les chaînes JSON, PAS de guillemets français ("") ou d'apostrophes ('').
+      4. Assure-toi que chaque chaîne de caractères est correctement échappée.
+      5. Ne mets PAS de virgule après le dernier élément d'un tableau ou d'un objet.
+      6. Vérifie que ton JSON est valide avant de le renvoyer.
+
+      Format exact requis (respecte STRICTEMENT ce format):
+
       {
-        "relevanceScore": (number between 0-100),
-        "keyFindings": [(3-5 key findings as strings)],
-        "suggestedImprovements": [(3-5 specific improvements as strings)],
-        "skillsAnalysis": {
-          "technical": [(relevant technical skills found in resume)],
-          "soft": [(relevant soft skills found in resume)],
-          "missing": [(important skills from job description not found in resume)]
-        },
-        "experienceAnalysis": {
-          "strengths": [(3-4 strong matches between experience and job requirements)],
-          "gaps": [(3-4 areas where experience doesn't meet job requirements)]
+        "matchScore": (nombre entre 0 et 100),
+        "missingKeywords": [
+          "mot-clé manquant 1",
+          "mot-clé manquant 2"
+        ],
+        "strongMatches": [
+          "correspondance forte 1",
+          "correspondance forte 2"
+        ],
+        "aiAnalysis": {
+          "keyFindings": [
+            "observation clé 1",
+            "observation clé 2"
+          ],
+          "suggestedImprovements": [
+            "amélioration suggérée 1",
+            "amélioration suggérée 2"
+          ],
+          "skillsAnalysis": {
+            "technical": [
+              "compétence technique 1",
+              "compétence technique 2"
+            ],
+            "soft": [
+              "soft skill 1",
+              "soft skill 2"
+            ],
+            "missing": [
+              "compétence manquante 1",
+              "compétence manquante 2"
+            ],
+            "recommendations": [
+              "recommandation 1",
+              "recommandation 2"
+            ]
+          },
+          "experienceAnalysis": {
+            "strengths": [
+              "point fort 1",
+              "point fort 2"
+            ],
+            "gaps": [
+              "lacune 1",
+              "lacune 2"
+            ],
+            "recommendations": [
+              "recommandation 1",
+              "recommandation 2"
+            ]
+          }
         }
       }
     `;
@@ -72,10 +208,10 @@ export async function analyzeWithGemini(
     const text = response.text();
     
     try {
-      // Clean the response text before parsing
       const cleanedText = cleanJsonResponse(text);
-      console.log('Cleaned JSON response:', cleanedText);
-      return JSON.parse(cleanedText) as DetailedAnalysis;
+      const parsedData = JSON.parse(cleanedText);
+      const validatedData = validateAnalysisResponse(parsedData);
+      return validatedData;
     } catch (error) {
       console.error('Failed to parse Gemini response:', error);
       console.error('Raw response:', text);

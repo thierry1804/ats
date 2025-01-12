@@ -11,10 +11,12 @@ export interface AnalysisResults {
       technical: string[];
       soft: string[];
       missing: string[];
+      recommendations: string[];
     };
     experienceAnalysis: {
       strengths: string[];
       gaps: string[];
+      recommendations: string[];
     };
   };
 }

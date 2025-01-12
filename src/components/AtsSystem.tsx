@@ -2,25 +2,6 @@ import React, { useState, useRef, ChangeEvent, DragEvent } from 'react';
 import { analyzeResume, generateOptimizedPDF, AnalysisResults } from '../services/api';
 import '@fortawesome/fontawesome-free/css/all.css';
 
-interface AnalysisResults {
-  matchScore: number;
-  missingKeywords: string[];
-  strongMatches: string[];
-  aiAnalysis?: {
-    keyFindings: string[];
-    suggestedImprovements: string[];
-    skillsAnalysis: {
-      technical: string[];
-      soft: string[];
-      missing: string[];
-    };
-    experienceAnalysis: {
-      strengths: string[];
-      gaps: string[];
-    };
-  };
-}
-
 const AtsSystem: React.FC = () => {
   const [jobDescription, setJobDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -30,14 +11,14 @@ const AtsSystem: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canAnalyze = jobDescription.trim() !== '' && selectedFile !== null;
-
   const getScoreColorClass = () => {
-    const score = analysisResults?.matchScore || 0;
-    if (score >= 80) return 'bg-green-500';
-    if (score >= 60) return 'bg-yellow-500';
+    if (!analysisResults) return '';
+    if (analysisResults.matchScore >= 80) return 'bg-green-600';
+    if (analysisResults.matchScore >= 60) return 'bg-yellow-500';
     return 'bg-red-500';
   };
+
+  const canAnalyze = jobDescription.trim() !== '' && selectedFile !== null;
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -181,11 +162,23 @@ const AtsSystem: React.FC = () => {
         </div>
       </div>
 
+      {/* Analyze Button */}
+      <div className="mb-8 text-center">
+        <button
+          onClick={handleAnalyzeResume}
+          disabled={!canAnalyze || isLoading}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? 'Analyzing...' : 'Analyze Resume'}
+        </button>
+      </div>
+
       {/* Analysis Results */}
       {analysisResults && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-3">Analysis Results</h2>
           <div className="bg-white rounded-lg shadow p-6">
+            {/* Match Score */}
             <div className="mb-4">
               <h3 className="font-semibold mb-2">Match Score</h3>
               <div className="w-full bg-gray-200 rounded-full h-4">
@@ -197,113 +190,13 @@ const AtsSystem: React.FC = () => {
               <p className="text-right mt-1">{analysisResults.matchScore}%</p>
             </div>
 
-            {/* AI Analysis */}
-            {analysisResults.aiAnalysis && (
-              <>
-                {/* Key Findings */}
-                <div className="mb-4">
-                  <h3 className="font-semibold mb-2">Key Findings</h3>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {analysisResults.aiAnalysis.keyFindings.map((finding, index) => (
-                      <li key={index} className="text-gray-700">{finding}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Skills Analysis */}
-                <div className="mb-4">
-                  <h3 className="font-semibold mb-2">Skills Analysis</h3>
-                  
-                  {/* Technical Skills */}
-                  <div className="mb-2">
-                    <h4 className="text-sm font-medium text-gray-600">Technical Skills</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {analysisResults.aiAnalysis.skillsAnalysis.technical.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Soft Skills */}
-                  <div className="mb-2">
-                    <h4 className="text-sm font-medium text-gray-600">Soft Skills</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {analysisResults.aiAnalysis.skillsAnalysis.soft.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Missing Skills */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600">Missing Skills</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {analysisResults.aiAnalysis.skillsAnalysis.missing.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Experience Analysis */}
-                <div className="mb-4">
-                  <h3 className="font-semibold mb-2">Experience Analysis</h3>
-                  
-                  {/* Strengths */}
-                  <div className="mb-2">
-                    <h4 className="text-sm font-medium text-gray-600">Strengths</h4>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {analysisResults.aiAnalysis.experienceAnalysis.strengths.map((strength, index) => (
-                        <li key={index} className="text-gray-700">{strength}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Gaps */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600">Areas for Improvement</h4>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {analysisResults.aiAnalysis.experienceAnalysis.gaps.map((gap, index) => (
-                        <li key={index} className="text-gray-700">{gap}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Suggested Improvements */}
-                <div className="mb-4">
-                  <h3 className="font-semibold mb-2">Suggested Improvements</h3>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {analysisResults.aiAnalysis.suggestedImprovements.map((improvement, index) => (
-                      <li key={index} className="text-gray-700">{improvement}</li>
-                    ))}
-                  </ul>
-                </div>
-              </>
-            )}
-
-            {/* Original Keyword Analysis */}
-            <div className="mb-4">
+            {/* Keyword Analysis */}
+            <div className="mb-6">
               <h3 className="font-semibold mb-2">Keyword Analysis</h3>
               <div className="space-y-4">
                 <div>
                   <h4 className="text-sm font-medium text-gray-600">Strong Matches</h4>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {analysisResults.strongMatches.map((match) => (
                       <span
                         key={match}
@@ -316,7 +209,7 @@ const AtsSystem: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-600">Missing Keywords</h4>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {analysisResults.missingKeywords.map((keyword) => (
                       <span
                         key={keyword}
@@ -329,27 +222,122 @@ const AtsSystem: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* AI Analysis */}
+            {analysisResults.aiAnalysis && (
+              <>
+                {/* Key Findings */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-2">Key Findings</h3>
+                  <ul className="list-disc pl-5 space-y-2">
+                    {analysisResults.aiAnalysis.keyFindings.map((finding, index) => (
+                      <li key={index} className="text-gray-700">{finding}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Suggested Improvements */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-2">Suggested Improvements</h3>
+                  <ul className="list-disc pl-5 space-y-2">
+                    {analysisResults.aiAnalysis.suggestedImprovements.map((improvement, index) => (
+                      <li key={index} className="text-gray-700">{improvement}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Skills Analysis */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-2">Skills Analysis</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Technical Skills</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {analysisResults.aiAnalysis.skillsAnalysis.technical.map((skill, index) => (
+                          <li key={index} className="text-gray-700">{skill}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Soft Skills</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {analysisResults.aiAnalysis.skillsAnalysis.soft.map((skill, index) => (
+                          <li key={index} className="text-gray-700">{skill}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Missing Skills</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {analysisResults.aiAnalysis.skillsAnalysis.missing.map((skill, index) => (
+                          <li key={index} className="text-gray-700">{skill}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Recommendations</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {analysisResults.aiAnalysis.skillsAnalysis.recommendations.map((rec, index) => (
+                          <li key={index} className="text-gray-700">{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Experience Analysis */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-2">Experience Analysis</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Strengths</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {analysisResults.aiAnalysis.experienceAnalysis.strengths.map((strength, index) => (
+                          <li key={index} className="text-gray-700">{strength}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Gaps</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {analysisResults.aiAnalysis.experienceAnalysis.gaps.map((gap, index) => (
+                          <li key={index} className="text-gray-700">{gap}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="md:col-span-2">
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Recommendations</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {analysisResults.aiAnalysis.experienceAnalysis.recommendations.map((rec, index) => (
+                          <li key={index} className="text-gray-700">{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Actions */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={handleGeneratePDF}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isLoading ? 'Generating...' : 'Generate Optimized PDF'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex justify-center gap-4">
-        <button
-          onClick={handleAnalyzeResume}
-          disabled={!canAnalyze || isLoading}
-          className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Analyzing...' : 'Analyze Resume'}
-        </button>
-        <button
-          onClick={handleGeneratePDF}
-          disabled={!analysisResults || isLoading}
-          className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Generating...' : 'Generate Optimized PDF'}
-        </button>
-      </div>
+      {/* Error Message */}
+      {error && (
+        <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
+          {error}
+        </div>
+      )}
     </div>
   );
 };

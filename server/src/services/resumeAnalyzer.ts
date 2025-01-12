@@ -19,10 +19,12 @@ interface AnalysisResults {
       technical: string[];
       soft: string[];
       missing: string[];
+      recommendations: string[];
     };
     experienceAnalysis: {
       strengths: string[];
       gaps: string[];
+      recommendations: string[];
     };
   };
 }
@@ -100,14 +102,14 @@ export async function analyzeResume(
       const aiAnalysis = await analyzeWithGemini(resumeText, jobDescription);
       
       return {
-        matchScore: aiAnalysis.relevanceScore || matchScore,
+        matchScore: aiAnalysis.matchScore,
         missingKeywords: missingKeywords.slice(0, 10),
         strongMatches: strongMatches.slice(0, 10),
         aiAnalysis: {
-          keyFindings: aiAnalysis.keyFindings,
-          suggestedImprovements: aiAnalysis.suggestedImprovements,
-          skillsAnalysis: aiAnalysis.skillsAnalysis,
-          experienceAnalysis: aiAnalysis.experienceAnalysis
+          keyFindings: aiAnalysis.aiAnalysis.keyFindings,
+          suggestedImprovements: aiAnalysis.aiAnalysis.suggestedImprovements,
+          skillsAnalysis: aiAnalysis.aiAnalysis.skillsAnalysis,
+          experienceAnalysis: aiAnalysis.aiAnalysis.experienceAnalysis
         }
       };
     } catch (aiError) {
