@@ -131,5 +131,5 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## Contact
 
-Votre Nom - email@example.com
-Lien du projet : [https://github.com/votre-username/ats](https://github.com/votre-username/ats) 
+Thierry RANDRIANTIANA - thierry1804@gmail.com
+Lien du projet : [https://github.com/thierry1804/ats](https://github.com/thierry1804/ats) 
