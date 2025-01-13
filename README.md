@@ -45,7 +45,7 @@ Un système d'analyse de CV intelligent qui utilise l'IA pour évaluer la compat
 
 1. Clonez le repository :
 ```bash
-git clone [url-du-repo]
+git clone https://github.com/thierry1804/ats.git
 cd ats
 ```
 
