@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import { analyzeResume } from './services/resumeAnalyzer';
 import { generateOptimizedPDF } from './services/pdfGenerator';
+import { getAnalyses, getAnalysisById } from './services/supabaseClient';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -70,6 +71,30 @@ app.post('/api/generate-pdf', upload.single('resume'), async (req, res) => {
   } catch (error) {
     console.error('PDF generation error:', error);
     res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+});
+
+// History routes
+app.get('/api/analyses', async (req, res) => {
+  try {
+    const analyses = await getAnalyses();
+    res.json(analyses);
+  } catch (error) {
+    console.error('Error fetching analyses:', error);
+    res.status(500).json({ error: 'Failed to fetch analyses' });
+  }
+});
+
+app.get('/api/analyses/:id', async (req, res) => {
+  try {
+    const analysis = await getAnalysisById(req.params.id);
+    if (!analysis) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+    res.json(analysis);
+  } catch (error) {
+    console.error('Error fetching analysis:', error);
+    res.status(500).json({ error: 'Failed to fetch analysis' });
   }
 });
 

@@ -4,6 +4,7 @@ import natural from 'natural';
 import fs from 'fs/promises';
 import path from 'path';
 import { analyzeWithGemini } from './geminiAnalyzer';
+import { saveAnalysis } from './supabaseClient';
 
 const tokenizer = new natural.WordTokenizer();
 const TfIdf = natural.TfIdf;
@@ -101,7 +102,7 @@ export async function analyzeResume(
     try {
       const aiAnalysis = await analyzeWithGemini(resumeText, jobDescription);
       
-      return {
+      const results = {
         matchScore: aiAnalysis.matchScore,
         missingKeywords: missingKeywords.slice(0, 10),
         strongMatches: strongMatches.slice(0, 10),
@@ -112,13 +113,56 @@ export async function analyzeResume(
           experienceAnalysis: aiAnalysis.aiAnalysis.experienceAnalysis
         }
       };
+
+      // Save analysis to Supabase
+      await saveAnalysis({
+        job_description: jobDescription,
+        resume_filename: path.basename(resumePath),
+        match_score: results.matchScore,
+        missing_keywords: results.missingKeywords,
+        strong_matches: results.strongMatches,
+        ai_analysis: {
+          key_findings: results.aiAnalysis.keyFindings,
+          suggested_improvements: results.aiAnalysis.suggestedImprovements,
+          skills_analysis: results.aiAnalysis.skillsAnalysis,
+          experience_analysis: results.aiAnalysis.experienceAnalysis
+        }
+      });
+
+      return results;
     } catch (aiError) {
       console.error('AI analysis failed, falling back to basic analysis:', aiError);
-      return {
+      const results = {
         matchScore,
         missingKeywords: missingKeywords.slice(0, 10),
         strongMatches: strongMatches.slice(0, 10)
       };
+
+      // Save basic analysis to Supabase
+      await saveAnalysis({
+        job_description: jobDescription,
+        resume_filename: path.basename(resumePath),
+        match_score: results.matchScore,
+        missing_keywords: results.missingKeywords,
+        strong_matches: results.strongMatches,
+        ai_analysis: {
+          key_findings: [],
+          suggested_improvements: [],
+          skills_analysis: {
+            technical: [],
+            soft: [],
+            missing: [],
+            recommendations: []
+          },
+          experience_analysis: {
+            strengths: [],
+            gaps: [],
+            recommendations: []
+          }
+        }
+      });
+
+      return results;
     }
   } catch (error) {
     console.error('Resume analysis error:', error);

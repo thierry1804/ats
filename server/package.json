@@ -11,13 +11,14 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.0",
+    "@supabase/supabase-js": "^2.47.12",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "multer": "^1.4.5-lts.1",
-    "pdf-parse": "^1.1.1",
     "mammoth": "^1.6.0",
+    "multer": "^1.4.5-lts.1",
     "natural": "^6.10.4",
+    "pdf-parse": "^1.1.1",
     "pdfkit": "^0.14.0"
   },
   "devDependencies": {
@@ -29,4 +30,4 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
   }
-} 
+}

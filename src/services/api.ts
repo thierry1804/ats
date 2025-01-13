@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 const API_URL = 'http://localhost:3000/api';
 
 export interface AnalysisResults {
@@ -14,6 +16,31 @@ export interface AnalysisResults {
       recommendations: string[];
     };
     experienceAnalysis: {
+      strengths: string[];
+      gaps: string[];
+      recommendations: string[];
+    };
+  };
+}
+
+export interface Analysis {
+  id: string;
+  created_at: string;
+  job_description: string;
+  resume_filename: string;
+  match_score: number;
+  missing_keywords: string[];
+  strong_matches: string[];
+  ai_analysis: {
+    key_findings: string[];
+    suggested_improvements: string[];
+    skills_analysis: {
+      technical: string[];
+      soft: string[];
+      missing: string[];
+      recommendations: string[];
+    };
+    experience_analysis: {
       strengths: string[];
       gaps: string[];
       recommendations: string[];
@@ -59,4 +86,14 @@ export async function generateOptimizedPDF(
   }
 
   return response.blob();
+}
+
+export async function getAnalyses(): Promise<Analysis[]> {
+  const response = await axios.get(`${API_URL}/analyses`);
+  return response.data;
+}
+
+export async function getAnalysisById(id: string): Promise<Analysis> {
+  const response = await axios.get(`${API_URL}/analyses/${id}`);
+  return response.data;
 } 
