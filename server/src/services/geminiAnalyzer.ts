@@ -128,75 +128,108 @@ export async function analyzeWithGemini(
     const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
     const prompt = `
-      Tu es un expert en recrutement et en analyse de CV avec plus de 20 ans d'expérience.
-      Analyse en détail le CV et la description du poste fournis ci-dessous.
-      Fournis une analyse APPROFONDIE et des recommandations SPÉCIFIQUES et ACTIONNABLES.
-
-      CV à analyser:
+      Tu es un expert en recrutement technique et en analyse de CV de haut niveau, spécialisé dans l'évaluation approfondie des correspondances entre les candidats et les postes, avec une expertise particulière dans l'identification des compétences équivalentes et transférables.
+      
+      CONTEXTE ET OBJECTIF:
+      - Analyse méticuleuse de l'adéquation entre le CV fourni et les exigences du poste
+      - Évaluation objective basée sur des critères mesurables
+      - Identification précise des forces, des équivalences technologiques et des axes d'amélioration
+      
+      INSTRUCTIONS DÉTAILLÉES:
+      1. Analyse des compétences techniques avec équivalences:
+         - Évalue la pertinence et le niveau de maîtrise de chaque compétence
+         - Identifie les équivalences technologiques (exemples):
+           * Git/Github/Gitlab/Bitbucket sont considérés comme équivalents
+           * React/Vue/Angular sont des frameworks front-end équivalents
+           * MySQL/PostgreSQL/MariaDB sont des SGBD relationnels équivalents
+           * PHP/Python/Node.js pour le backend sont souvent interchangeables
+         - Compare avec les exigences en considérant les alternatives valables
+         - Évalue le potentiel de transfert rapide entre technologies similaires
+      
+      2. Analyse de l'expérience avec focus technologique:
+         - Évalue la progression technique et la capacité d'adaptation
+         - Identifie les patterns d'apprentissage et d'adoption de nouvelles technologies
+         - Mesure la polyvalence technique à travers les projets
+      
+      3. Évaluation des mots-clés et équivalences:
+         - Analyse la densité des mots-clés et leurs alternatives valables
+         - Vérifie l'alignement avec l'écosystème technologique demandé
+         - Identifie les termes manquants en tenant compte des équivalences
+      
+      4. Analyse culturelle et technique:
+         - Évalue la culture d'apprentissage et d'adaptation technique
+         - Analyse la capacité à adopter de nouvelles technologies
+         - Identifie les indicateurs de veille technologique et d'auto-formation
+      
+      DONNÉES À ANALYSER:
+      
+      CV:
       ${resumeText}
 
       Description du poste:
       ${jobDescription}
 
-      IMPORTANT: 
-      1. Ta réponse doit être UNIQUEMENT un objet JSON valide, sans aucun texte avant ou après.
-      2. N'utilise PAS de blocs de code markdown.
-      3. Utilise UNIQUEMENT des guillemets droits (") pour les chaînes JSON, PAS de guillemets français ("") ou d'apostrophes ('').
-      4. Assure-toi que chaque chaîne de caractères est correctement échappée.
-      5. Ne mets PAS de virgule après le dernier élément d'un tableau ou d'un objet.
-      6. Vérifie que ton JSON est valide avant de le renvoyer.
+      CONSIGNES DE FORMATAGE CRITIQUES:
+      - Réponse UNIQUEMENT en JSON valide
+      - TOUS les tableaux doivent contenir UNIQUEMENT des chaînes de caractères simples
+      - PAS d'objets complexes dans les tableaux
+      - Pour les compétences techniques, utilisez le format "NomCompétence: Niveau - Détails (Équivalences: X, Y, Z)"
+      - Pour les expériences, utilisez le format "Projet/Rôle: Description - Impact - Technologies équivalentes utilisées"
+      - Pas de texte avant/après le JSON
+      - Utilisation exclusive de guillemets droits (")
+      - Échappement correct des caractères spéciaux
+      - Pas de virgule après le dernier élément
+      - Validation de la structure JSON avant envoi
 
-      Format exact requis (respecte STRICTEMENT ce format):
+      EXEMPLE DE FORMAT POUR LES TABLEAUX:
+      "technical": [
+        "Git: Expert - Maîtrise des workflows Git (Équivalences: Github, Gitlab, Bitbucket)",
+        "React: Avancé - Développement front-end moderne (Équivalences: Vue.js, Angular)"
+      ]
+      "strengths": [
+        "Projet E-commerce: Lead Developer - Migration réussie vers nouvelle stack - Adaptation rapide Node.js vers Python",
+        "API Gateway: Architecte - Optimisation performance 40% - Expertise transférable microservices"
+      ]
 
+      FORMAT DE RÉPONSE REQUIS:
       {
-        "matchScore": (nombre entre 0 et 100),
+        "matchScore": (score de 0 à 100 basé sur une analyse pondérée incluant les équivalences),
         "missingKeywords": [
-          "mot-clé manquant 1",
-          "mot-clé manquant 2"
+          "technologie manquante sans équivalent dans le profil"
         ],
         "strongMatches": [
-          "correspondance forte 1",
-          "correspondance forte 2"
+          "compétence directe ou équivalente parfaitement alignée"
         ],
         "aiAnalysis": {
           "keyFindings": [
-            "observation clé 1",
-            "observation clé 2"
+            "observation clé sur l'adéquation technique et les équivalences"
           ],
           "suggestedImprovements": [
-            "amélioration suggérée 1",
-            "amélioration suggérée 2"
+            "suggestion d'amélioration ou de transition technologique"
           ],
           "skillsAnalysis": {
             "technical": [
-              "compétence technique 1",
-              "compétence technique 2"
+              "compétence: niveau - détails (avec équivalences)"
             ],
             "soft": [
-              "soft skill 1",
-              "soft skill 2"
+              "compétence d'adaptation technique - contexte"
             ],
             "missing": [
-              "compétence manquante 1",
-              "compétence manquante 2"
+              "compétence manquante - impact (après considération des équivalences)"
             ],
             "recommendations": [
-              "recommandation 1",
-              "recommandation 2"
+              "recommandation de montée en compétence ou transition"
             ]
           },
           "experienceAnalysis": {
             "strengths": [
-              "point fort 1",
-              "point fort 2"
+              "expérience pertinente - impact - technologies équivalentes"
             ],
             "gaps": [
-              "lacune 1",
-              "lacune 2"
+              "lacune identifiée - contexte - possibilités de transition"
             ],
             "recommendations": [
-              "recommandation 1",
-              "recommandation 2"
+              "recommandation pour combler les lacunes techniques"
             ]
           }
         }
