@@ -51,6 +51,41 @@ const AtsSystem: React.FC = () => {
     return totalWeight > 0 ? Math.round((score / totalWeight) * 100) : 0;
   };
 
+  const calculateScoreDetails = (results: AnalysisResults) => {
+    const technicalScore = results.aiAnalysis?.skillsAnalysis ? 
+      Math.round((results.aiAnalysis.skillsAnalysis.technical.length / 
+        (results.aiAnalysis.skillsAnalysis.technical.length + 
+         results.aiAnalysis.skillsAnalysis.missing.length || 1)) * 40) : 0;
+
+    const experienceScore = results.aiAnalysis?.experienceAnalysis ? 
+      Math.round((results.aiAnalysis.experienceAnalysis.strengths.length / 
+        (results.aiAnalysis.experienceAnalysis.strengths.length + 
+         results.aiAnalysis.experienceAnalysis.gaps.length || 1)) * 30) : 0;
+
+    const redFlagScore = results.redFlags ? 
+      Math.max(0, 30 - (results.redFlags.length * 10)) : 30;
+
+    return {
+      technical: {
+        score: technicalScore,
+        present: results.aiAnalysis?.skillsAnalysis.technical.length || 0,
+        total: (results.aiAnalysis?.skillsAnalysis.technical.length || 0) + 
+               (results.aiAnalysis?.skillsAnalysis.missing.length || 0)
+      },
+      experience: {
+        score: experienceScore,
+        strengths: results.aiAnalysis?.experienceAnalysis.strengths.length || 0,
+        total: (results.aiAnalysis?.experienceAnalysis.strengths.length || 0) + 
+               (results.aiAnalysis?.experienceAnalysis.gaps.length || 0)
+      },
+      redFlags: {
+        score: redFlagScore,
+        count: results.redFlags?.length || 0,
+        penalty: results.redFlags?.length ? Math.min(30, results.redFlags.length * 10) : 0
+      }
+    };
+  };
+
   const getScoreColorClass = () => {
     if (!analysisResults) return '';
     const score = calculateMatchScore(analysisResults);
@@ -257,6 +292,50 @@ const AtsSystem: React.FC = () => {
                 />
               </div>
               <p className="text-right mt-1">{calculateMatchScore(analysisResults)}%</p>
+
+              {/* Détail du Score */}
+              <div className="mt-4 bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-600 mb-3">Détail du Score</h4>
+                {(() => {
+                  const details = calculateScoreDetails(analysisResults);
+                  return (
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Compétences Techniques (40%)</span>
+                          <span className="font-medium">{details.technical.score}%</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {details.technical.present} compétences présentes / {details.technical.total} requises
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Expérience (30%)</span>
+                          <span className="font-medium">{details.experience.score}%</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {details.experience.strengths} points forts / {details.experience.total} critères
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Points d'attention (30%)</span>
+                          <span className="font-medium">{details.redFlags.score}%</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {details.redFlags.count} points d'attention détectés
+                          {details.redFlags.count ? 
+                            ` (-${details.redFlags.penalty}%)` : 
+                            ' (pas de pénalité)'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
 
             {/* Keyword Analysis */}
