@@ -21,6 +21,26 @@ export interface AnalysisResults {
   };
 }
 
+export interface MultipleAnalysisResults {
+  candidates: {
+    [key: string]: AnalysisResults;
+  };
+  comparison: {
+    ranking: string[];
+    strengthComparison: string[];
+    uniqueStrengths: {
+      [key: string]: string[];
+    };
+    recommendations: string[];
+  };
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+}
+
 export async function analyzeResume(
   file: File,
   jobDescription: string
@@ -59,4 +79,24 @@ export async function generateOptimizedPDF(
   }
 
   return response.blob();
+}
+
+export async function analyzeMultipleResumes(files: File[], jobDescription: string): Promise<ApiResponse<MultipleAnalysisResults>> {
+  const formData = new FormData();
+  files.forEach(file => {
+    formData.append('resumes', file);
+  });
+  formData.append('jobDescription', jobDescription);
+
+  const response = await fetch(`${API_URL}/analyze-multiple`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to analyze resumes');
+  }
+
+  return response.json();
 } 

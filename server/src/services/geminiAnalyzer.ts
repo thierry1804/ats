@@ -28,6 +28,20 @@ interface DetailedAnalysis {
   };
 }
 
+interface ComparativeAnalysis {
+  candidates: {
+    [key: string]: DetailedAnalysis;
+  };
+  comparison: {
+    ranking: string[];
+    strengthComparison: string[];
+    uniqueStrengths: {
+      [key: string]: string[];
+    };
+    recommendations: string[];
+  };
+}
+
 function cleanJsonResponse(text: string): string {
   // Remove any text before the first {
   const startIndex = text.indexOf('{');
@@ -252,6 +266,111 @@ export async function analyzeWithGemini(
     }
   } catch (error) {
     console.error('Gemini analysis error:', error);
+    throw error;
+  }
+}
+
+export async function analyzeMultipleResumes(
+  resumes: { [key: string]: string },
+  jobDescription: string
+): Promise<ComparativeAnalysis> {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+    // Analyze each resume individually
+    const individualAnalyses: { [key: string]: DetailedAnalysis } = {};
+    for (const [candidateName, resumeText] of Object.entries(resumes)) {
+      const analysis = await analyzeWithGemini(resumeText, jobDescription);
+      individualAnalyses[candidateName] = analysis;
+    }
+
+    // Perform comparative analysis
+    const comparativePrompt = `
+      Tu es un expert en recrutement technique chargé de comparer plusieurs candidats pour un même poste.
+      Analyse et compare les profils suivants de manière objective et détaillée.
+
+      Description du poste:
+      ${jobDescription}
+
+      Analyses individuelles des candidats:
+      ${JSON.stringify(individualAnalyses, null, 2)}
+
+      INSTRUCTIONS:
+      1. Compare les candidats de manière objective
+      2. Identifie les forces uniques de chaque candidat
+      3. Établis un classement basé sur l'adéquation globale
+      4. Fournis des recommandations pour le processus de sélection
+
+      IMPORTANT - FORMAT DE RÉPONSE:
+      - Utilise UNIQUEMENT des chaînes de caractères simples dans les tableaux
+      - Pour le ranking, utilise le format: "NomCandidat: Score - Raison"
+      - Pas d'objets imbriqués dans les tableaux
+      - Pas de virgule après le dernier élément
+
+      FORMAT DE RÉPONSE REQUIS (JSON):
+      {
+        "ranking": [
+          "NomCandidat: Score - Raison du classement"
+        ],
+        "strengthComparison": [
+          "Comparaison détaillée entre Candidat1 et Candidat2: forces et faiblesses"
+        ],
+        "uniqueStrengths": {
+          "NomCandidat": [
+            "Force unique spécifique au candidat"
+          ]
+        },
+        "recommendations": [
+          "Recommandation générale pour le processus de sélection"
+        ]
+      }
+
+      EXEMPLE DE FORMAT VALIDE:
+      {
+        "ranking": [
+          "Jean Dupont: 85 - Excellente expérience technique",
+          "Marie Martin: 75 - Bonnes compétences transférables"
+        ],
+        "strengthComparison": [
+          "Jean montre plus d'expérience en backend, Marie excelle en frontend",
+          "Les deux candidats maîtrisent bien les principes DevOps"
+        ],
+        "uniqueStrengths": {
+          "Jean Dupont": [
+            "Expert en architecture microservices",
+            "Certification AWS avancée"
+          ],
+          "Marie Martin": [
+            "Spécialiste React/Redux",
+            "Expérience en UX design"
+          ]
+        },
+        "recommendations": [
+          "Considérer les deux profils pour des rôles complémentaires",
+          "Approfondir les connaissances en architecture système lors des entretiens"
+        ]
+      }
+    `;
+
+    const comparisonResult = await model.generateContent(comparativePrompt);
+    const comparisonResponse = await comparisonResult.response;
+    const comparisonText = comparisonResponse.text();
+    
+    try {
+      const cleanedText = cleanJsonResponse(comparisonText);
+      const comparisonData = JSON.parse(cleanedText);
+
+      return {
+        candidates: individualAnalyses,
+        comparison: comparisonData
+      };
+    } catch (error) {
+      console.error('Failed to parse comparative analysis:', error);
+      console.error('Raw comparison response:', comparisonText);
+      throw new Error('Invalid comparison response format');
+    }
+  } catch (error) {
+    console.error('Multiple resume analysis error:', error);
     throw error;
   }
 } 

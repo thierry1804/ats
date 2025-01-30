@@ -1,12 +1,13 @@
 import React, { useState, useRef, ChangeEvent, DragEvent } from 'react';
-import { analyzeResume, generateOptimizedPDF, AnalysisResults } from '../services/api';
+import { analyzeResume, generateOptimizedPDF, AnalysisResults, analyzeMultipleResumes, MultipleAnalysisResults } from '../services/api';
 import '@fortawesome/fontawesome-free/css/all.css';
 
 const AtsSystem: React.FC = () => {
   const [jobDescription, setJobDescription] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults | null>(null);
+  const [multipleAnalysisResults, setMultipleAnalysisResults] = useState<MultipleAnalysisResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -18,34 +19,36 @@ const AtsSystem: React.FC = () => {
     return 'bg-red-500';
   };
 
-  const canAnalyze = jobDescription.trim() !== '' && selectedFile !== null;
+  const canAnalyze = jobDescription.trim() !== '' && selectedFiles.length > 0;
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      if (isValidFileType(file)) {
-        setSelectedFile(file);
-        setError(null);
-      } else {
-        setError('Invalid file type. Please upload a PDF, DOC, or DOCX file.');
-      }
+    const files = Array.from(e.dataTransfer?.files || []);
+    const validFiles = files.filter(file => isValidFileType(file));
+    
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+      setError(null);
+    } else {
+      setError('Invalid file type. Please upload PDF, DOC, or DOCX files.');
     }
   };
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      if (isValidFileType(file)) {
-        setSelectedFile(file);
-        setError(null);
-      } else {
-        setError('Invalid file type. Please upload a PDF, DOC, or DOCX file.');
-      }
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(file => isValidFileType(file));
+    
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+      setError(null);
+    } else {
+      setError('Invalid file type. Please upload PDF, DOC, or DOCX files.');
     }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const isValidFileType = (file: File) => {
@@ -53,17 +56,29 @@ const AtsSystem: React.FC = () => {
     return validTypes.some(type => file.name.toLowerCase().endsWith(type));
   };
 
-  const handleAnalyzeResume = async () => {
-    if (!selectedFile || !jobDescription.trim()) return;
+  const handleAnalyzeResumes = async () => {
+    if (selectedFiles.length === 0 || !jobDescription.trim()) return;
 
     setIsLoading(true);
     setError(null);
+    setAnalysisResults(null);
+    setMultipleAnalysisResults(null);
 
     try {
-      const results = await analyzeResume(selectedFile, jobDescription);
-      setAnalysisResults(results);
+      if (selectedFiles.length === 1) {
+        const results = await analyzeResume(selectedFiles[0], jobDescription);
+        setAnalysisResults(results);
+      } else {
+        const results = await analyzeMultipleResumes(selectedFiles, jobDescription);
+        if (results?.data) {
+          setMultipleAnalysisResults(results.data);
+        } else {
+          throw new Error('Invalid response format from server');
+        }
+      }
     } catch (err) {
-      setError('Failed to analyze resume. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to analyze resume(s)';
+      setError(errorMessage);
       console.error('Analysis error:', err);
     } finally {
       setIsLoading(false);
@@ -71,13 +86,13 @@ const AtsSystem: React.FC = () => {
   };
 
   const handleGeneratePDF = async () => {
-    if (!selectedFile || !analysisResults) return;
+    if (selectedFiles.length === 0 || !analysisResults) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const pdfBlob = await generateOptimizedPDF(selectedFile, analysisResults);
+      const pdfBlob = await generateOptimizedPDF(selectedFiles[0], analysisResults);
       
       // Create download link
       const url = window.URL.createObjectURL(pdfBlob);
@@ -94,6 +109,12 @@ const AtsSystem: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to safely render arrays
+  const safeMap = (array: any[] | undefined, renderFn: (item: any, index: number) => React.ReactNode) => {
+    if (!array || !Array.isArray(array)) return null;
+    return array.map(renderFn);
   };
 
   return (
@@ -119,7 +140,7 @@ const AtsSystem: React.FC = () => {
 
       {/* Resume Upload */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-3">Upload Resume</h2>
+        <h2 className="text-xl font-semibold mb-3">Upload Resumes</h2>
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
@@ -129,47 +150,55 @@ const AtsSystem: React.FC = () => {
           onDragEnter={() => setIsDragging(true)}
           onDragLeave={() => setIsDragging(false)}
         >
-          {!selectedFile ? (
-            <div>
-              <i className="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3" />
-              <p className="text-gray-600">Drag and drop your resume here or</p>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                accept=".pdf,.doc,.docx"
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-              >
-                Browse Files
-              </button>
-            </div>
-          ) : (
-            <div className="text-green-600">
-              <i className="fas fa-check-circle text-2xl mb-2" />
-              <p>{selectedFile.name}</p>
-              <button
-                onClick={() => setSelectedFile(null)}
-                className="mt-2 text-red-500 hover:text-red-600"
-              >
-                Remove
-              </button>
-            </div>
-          )}
+          <div>
+            <i className="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3" />
+            <p className="text-gray-600">Drag and drop your resumes here or</p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".pdf,.doc,.docx"
+              multiple
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Browse Files
+            </button>
+          </div>
         </div>
+
+        {/* Selected Files List */}
+        {selectedFiles.length > 0 && (
+          <div className="mt-4">
+            <h3 className="font-semibold mb-2">Selected Files:</h3>
+            <div className="space-y-2">
+              {selectedFiles.map((file, index) => (
+                <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                  <span>{file.name}</span>
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="text-red-500 hover:text-red-600"
+                  >
+                    <i className="fas fa-times" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Analyze Button */}
       <div className="mb-8 text-center">
         <button
-          onClick={handleAnalyzeResume}
+          onClick={handleAnalyzeResumes}
           disabled={!canAnalyze || isLoading}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? 'Analyzing...' : 'Analyze Resume'}
+          {isLoading ? 'Analyzing...' : `Analyze Resume${selectedFiles.length > 1 ? 's' : ''}`}
         </button>
       </div>
 
@@ -332,10 +361,153 @@ const AtsSystem: React.FC = () => {
         </div>
       )}
 
-      {/* Error Message */}
-      {error && (
-        <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
-          {error}
+      {/* Multiple Analysis Results */}
+      {multipleAnalysisResults && multipleAnalysisResults.comparison && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-3">Comparative Analysis Results</h2>
+          
+          {/* Global Comparison */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Global Comparison</h3>
+            
+            {/* Ranking */}
+            {multipleAnalysisResults.comparison.ranking && multipleAnalysisResults.comparison.ranking.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-2">Candidate Ranking</h4>
+                <ul className="space-y-2">
+                  {safeMap(multipleAnalysisResults.comparison.ranking, (rank: string, index: number) => (
+                    <li key={index} className="p-2 bg-gray-50 rounded">
+                      {rank}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Strength Comparison */}
+            {multipleAnalysisResults.comparison.strengthComparison && multipleAnalysisResults.comparison.strengthComparison.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-2">Comparative Analysis</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  {safeMap(multipleAnalysisResults.comparison.strengthComparison, (comparison: string, index: number) => (
+                    <li key={index} className="text-gray-700">{comparison}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {multipleAnalysisResults.comparison.recommendations && multipleAnalysisResults.comparison.recommendations.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-2">Global Recommendations</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  {safeMap(multipleAnalysisResults.comparison.recommendations, (recommendation: string, index: number) => (
+                    <li key={index} className="text-gray-700">{recommendation}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Individual Analyses */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Individual Analyses</h3>
+            {Object.entries(multipleAnalysisResults.candidates).map(([candidateName, analysis]) => (
+              <div key={candidateName} className="bg-white rounded-lg shadow p-6">
+                <h4 className="text-lg font-semibold mb-4 pb-2 border-b">
+                  {candidateName}
+                  <span className={`ml-4 px-3 py-1 rounded-full text-sm ${
+                    analysis.matchScore >= 80 ? 'bg-green-100 text-green-800' :
+                    analysis.matchScore >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    Match Score: {analysis.matchScore}%
+                  </span>
+                </h4>
+
+                {/* Key Findings */}
+                {analysis.aiAnalysis?.keyFindings && analysis.aiAnalysis.keyFindings.length > 0 && (
+                  <div className="mb-4">
+                    <h5 className="font-semibold mb-2">Key Findings</h5>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {analysis.aiAnalysis.keyFindings.map((finding, idx) => (
+                        <li key={idx} className="text-gray-700">{finding}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Keywords Analysis */}
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Strong Matches */}
+                  <div>
+                    <h5 className="font-semibold mb-2">Strong Matches</h5>
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.strongMatches.map((match, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                          {match}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Missing Keywords */}
+                  <div>
+                    <h5 className="font-semibold mb-2">Missing Keywords</h5>
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.missingKeywords.map((keyword, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm">
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Skills Analysis */}
+                {analysis.aiAnalysis?.skillsAnalysis && (
+                  <div className="mb-4">
+                    <h5 className="font-semibold mb-2">Skills Analysis</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Technical Skills */}
+                      <div>
+                        <h6 className="text-sm font-medium text-gray-600 mb-1">Technical Skills</h6>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {analysis.aiAnalysis.skillsAnalysis.technical.map((skill, idx) => (
+                            <li key={idx} className="text-gray-700">{skill}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Soft Skills */}
+                      {analysis.aiAnalysis.skillsAnalysis.soft.length > 0 && (
+                        <div>
+                          <h6 className="text-sm font-medium text-gray-600 mb-1">Soft Skills</h6>
+                          <ul className="list-disc pl-5 space-y-1">
+                            {analysis.aiAnalysis.skillsAnalysis.soft.map((skill, idx) => (
+                              <li key={idx} className="text-gray-700">{skill}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Improvements */}
+                {analysis.aiAnalysis?.suggestedImprovements && analysis.aiAnalysis.suggestedImprovements.length > 0 && (
+                  <div className="mb-4">
+                    <h5 className="font-semibold mb-2">Suggested Improvements</h5>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {analysis.aiAnalysis.suggestedImprovements.map((improvement, idx) => (
+                        <li key={idx} className="text-gray-700">{improvement}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -1,133 +1,101 @@
 # ATS Resume Analyzer
 
-Un système d'analyse de CV intelligent qui utilise l'IA pour évaluer la compatibilité entre un CV et une description de poste.
+An intelligent ATS (Applicant Tracking System) powered by AI to analyze and compare resumes against job descriptions.
 
-## Fonctionnalités
+## Features
 
-- 📄 Upload de CV (formats PDF, DOC, DOCX)
-- 📝 Analyse de la description de poste
-- 🎯 Score de correspondance ATS
-- 🔍 Analyse des mots-clés :
-  - Correspondances fortes
-  - Mots-clés manquants
-- 🤖 Analyse IA approfondie :
-  - Points clés
-  - Suggestions d'amélioration
-  - Analyse des compétences (techniques et soft skills)
-  - Analyse de l'expérience
-- 📊 Génération de PDF optimisé avec recommandations
+### Single Resume Analysis
+- Upload and analyze individual resumes (PDF, DOC, DOCX)
+- Match score calculation
+- Keyword analysis (matches and missing keywords)
+- Detailed AI analysis of skills and experience
+- Generate optimized PDF with analysis results
 
-## Technologies Utilisées
+### Multiple Resume Analysis (New!)
+- Upload and analyze multiple resumes simultaneously
+- Comparative analysis between candidates
+- Global ranking and recommendations
+- Individual detailed analysis for each candidate
+- Strength comparison across all candidates
+- Unique strengths identification per candidate
 
-- Frontend :
-  - React
-  - TypeScript
-  - Tailwind CSS
-  - Vite
-- Backend :
-  - Node.js
-  - Express
-  - TypeScript
-  - Google Gemini AI
-- Outils :
-  - pdf-parse (extraction de texte PDF)
-  - mammoth (extraction de texte DOC/DOCX)
-  - natural (NLP pour l'analyse de texte)
-  - PDFKit (génération de PDF)
+### Technical Features
+- Real-time analysis using Gemini AI
+- Support for multiple file formats (PDF, DOC, DOCX)
+- Drag and drop file upload
+- Responsive design
+- Error handling and validation
 
-## Prérequis
+## Getting Started
 
-- Node.js (v16 ou supérieur)
-- npm ou yarn
-- Clé API Google Gemini
+### Prerequisites
+- Node.js (v14 or higher)
+- npm or yarn
+- XAMPP (for local development)
 
-## Installation
+### Installation
 
-1. Clonez le repository :
+1. Clone the repository:
 ```bash
-git clone https://github.com/thierry1804/ats.git
-cd ats
+git clone [repository-url]
 ```
 
-2. Installez les dépendances du frontend :
+2. Install dependencies:
 ```bash
+# Install frontend dependencies
 npm install
-```
 
-3. Installez les dépendances du backend :
-```bash
+# Install server dependencies
 cd server
 npm install
 ```
 
-4. Créez un fichier `.env` dans le dossier `server` :
+3. Set up environment variables:
+Create a `.env` file in the server directory with:
 ```env
-GEMINI_API_KEY=votre-clé-api-gemini
-PORT=3000
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-## Démarrage
-
-1. Démarrez le backend :
+4. Start the development servers:
 ```bash
-cd server
+# Start frontend (from root directory)
+npm run dev
+
+# Start backend (from server directory)
 npm run dev
 ```
-Le serveur démarrera sur http://localhost:3000
 
-2. Dans un nouveau terminal, démarrez le frontend :
-```bash
-npm run dev
-```
-L'application sera accessible sur http://localhost:5174
+## Usage
 
-## Utilisation
+1. Enter the job description in the text area
+2. Upload one or multiple resumes using drag & drop or file browser
+3. Click "Analyze Resume(s)" to start the analysis
+4. View the detailed analysis results:
+   - For single resume: Match score, keywords, skills analysis, and recommendations
+   - For multiple resumes: Comparative analysis, ranking, and individual detailed analysis
 
-1. Ouvrez l'application dans votre navigateur
-2. Collez la description du poste dans la zone de texte
-3. Uploadez votre CV (glisser-déposer ou via le bouton)
-4. Cliquez sur "Analyze Resume"
-5. Consultez les résultats de l'analyse
-6. Optionnel : Générez un PDF optimisé avec les recommandations
+## Technologies Used
 
-## Structure du Projet
+### Frontend
+- React with TypeScript
+- Tailwind CSS
+- Vite
 
-```
-ats/
-├── src/                    # Frontend React
-│   ├── components/         # Composants React
-│   ├── services/          # Services API
-│   └── ...
-├── server/                # Backend Node.js
-│   ├── src/
-│   │   ├── services/     # Services métier
-│   │   └── index.ts      # Point d'entrée
-│   └── uploads/          # Dossier des fichiers uploadés
-└── ...
-```
+### Backend
+- Node.js with Express
+- Google Gemini AI
+- PDF parsing and processing
 
-## API Endpoints
+## Contributing
 
-- `POST /api/analyze` : Analyse un CV
-  - Body : FormData avec `resume` (fichier) et `jobDescription` (texte)
-  - Response : Résultats de l'analyse
+1. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+2. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+3. Push to the branch (`git push origin feature/AmazingFeature`)
+4. Open a Pull Request
 
-- `POST /api/generate-pdf` : Génère un PDF optimisé
-  - Body : FormData avec `resume` (fichier) et `analysisResults` (JSON)
-  - Response : Fichier PDF
+## License
 
-## Contribution
-
-Les contributions sont les bienvenues ! N'hésitez pas à :
-1. Fork le projet
-2. Créer une branche (`git checkout -b feature/AmazingFeature`)
-3. Commit vos changements (`git commit -m 'Add some AmazingFeature'`)
-4. Push sur la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
-
-## Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+This project is licensed under the MIT License - see the LICENSE file for details
 
 ## Contact
 

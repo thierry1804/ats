@@ -3,7 +3,7 @@ import mammoth from 'mammoth';
 import natural from 'natural';
 import fs from 'fs/promises';
 import path from 'path';
-import { analyzeWithGemini } from './geminiAnalyzer';
+import { analyzeWithGemini, analyzeMultipleResumes } from './geminiAnalyzer';
 
 const tokenizer = new natural.WordTokenizer();
 const TfIdf = natural.TfIdf;
@@ -29,20 +29,33 @@ interface AnalysisResults {
   };
 }
 
-export async function extractTextFromFile(filePath: string): Promise<string> {
-  const ext = path.extname(filePath).toLowerCase();
-  
+export async function extractTextFromFile(input: string | Buffer, filename?: string): Promise<string> {
   try {
+    let dataBuffer: Buffer;
+    let ext = '';
+
+    if (typeof input === 'string') {
+      // Input is a file path
+      dataBuffer = await fs.readFile(input);
+      ext = path.extname(input).toLowerCase();
+    } else {
+      // Input is a Buffer
+      dataBuffer = input;
+      if (!filename) {
+        throw new Error('Filename is required when input is a Buffer');
+      }
+      ext = path.extname(filename).toLowerCase();
+    }
+
     if (ext === '.pdf') {
-      const dataBuffer = await fs.readFile(filePath);
       const pdfData = await pdfParse(dataBuffer);
       return pdfData.text;
     } else if (ext === '.doc' || ext === '.docx') {
-      const docBuffer = await fs.readFile(filePath);
-      const result = await mammoth.extractRawText({ buffer: docBuffer });
+      const result = await mammoth.extractRawText({ buffer: dataBuffer });
       return result.value;
     }
-    throw new Error('Unsupported file type');
+    
+    throw new Error(`Unsupported file type: ${ext}`);
   } catch (error) {
     console.error('Text extraction error:', error);
     throw error;
@@ -57,11 +70,11 @@ function extractKeywords(text: string): string[] {
   const stopwords = natural.stopwords;
   
   // Filter out stopwords and short words
-  const keywords = tokens.filter(token => 
+  const keywords = tokens?.filter(token => 
     token.length > 2 && 
     !stopwords.includes(token) &&
     /^[a-zA-Z]+$/.test(token)
-  );
+  ) || [];
   
   // Get unique keywords
   return Array.from(new Set(keywords));
@@ -122,6 +135,38 @@ export async function analyzeResume(
     }
   } catch (error) {
     console.error('Resume analysis error:', error);
+    throw error;
+  }
+}
+
+export async function analyzeMultipleCandidates(
+  files: { [key: string]: Express.Multer.File },
+  jobDescription: string
+): Promise<any> {
+  try {
+    const resumes: { [key: string]: string } = {};
+
+    // Process each resume file
+    for (const [candidateName, file] of Object.entries(files)) {
+      if (!file.buffer) {
+        throw new Error(`No content found in file for candidate ${candidateName}`);
+      }
+
+      // Convert file to text using the buffer and filename
+      const text = await extractTextFromFile(file.buffer, file.originalname);
+      if (!text) {
+        throw new Error(`Failed to extract text from file for candidate ${candidateName}`);
+      }
+
+      resumes[candidateName] = text;
+    }
+
+    // Perform comparative analysis
+    const analysis = await analyzeMultipleResumes(resumes, jobDescription);
+    return analysis;
+
+  } catch (error) {
+    console.error('Error analyzing multiple resumes:', error);
     throw error;
   }
 } 
