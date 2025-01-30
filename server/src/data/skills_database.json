@@ -1,0 +1,144 @@
+{
+  "categories": [
+    {
+      "name": "Programming Languages",
+      "keywords": [
+        "java",
+        "python",
+        "javascript",
+        "typescript",
+        "c++",
+        "c#",
+        "ruby",
+        "php",
+        "swift",
+        "kotlin",
+        "go",
+        "rust"
+      ],
+      "synonyms": {
+        "javascript": ["js", "ecmascript", "node.js", "nodejs", "es6", "es2015+"],
+        "python": ["py", "python3", "python2", "django", "flask"],
+        "typescript": ["ts", "type script"],
+        "c++": ["cpp", "cplusplus", "c plus plus"],
+        "c#": ["csharp", "c sharp", ".net", "dotnet"],
+        "ruby": ["rb", "ruby on rails", "rails"],
+        "php": ["php7", "php8", "laravel", "symfony"],
+        "swift": ["swift ui", "swiftui"],
+        "kotlin": ["kt", "android kotlin"],
+        "go": ["golang", "go lang"],
+        "rust": ["rustlang", "rust lang"]
+      }
+    },
+    {
+      "name": "Web Development",
+      "keywords": [
+        "html",
+        "css",
+        "sass",
+        "react",
+        "angular",
+        "vue",
+        "svelte",
+        "webpack",
+        "babel",
+        "responsive design"
+      ],
+      "synonyms": {
+        "html": ["html5", "xhtml"],
+        "css": ["css3", "cascading style sheets", "scss", "less"],
+        "sass": ["scss"],
+        "react": ["reactjs", "react.js", "react native", "react hooks"],
+        "angular": ["angularjs", "angular2+", "ng"],
+        "vue": ["vuejs", "vue.js", "vue3"],
+        "svelte": ["sveltejs", "svelte kit"],
+        "webpack": ["web pack", "module bundler"],
+        "babel": ["babeljs", "babel transpiler"]
+      }
+    },
+    {
+      "name": "DevOps & Cloud",
+      "keywords": [
+        "docker",
+        "kubernetes",
+        "aws",
+        "azure",
+        "gcp",
+        "ci/cd",
+        "jenkins",
+        "terraform",
+        "ansible"
+      ],
+      "synonyms": {
+        "kubernetes": ["k8s", "kube", "k3s"],
+        "aws": ["amazon web services", "amazon aws", "aws cloud"],
+        "azure": ["microsoft azure", "azure cloud", "azure devops"],
+        "gcp": ["google cloud", "google cloud platform"],
+        "ci/cd": ["continuous integration", "continuous deployment", "continuous delivery", "pipeline"],
+        "jenkins": ["jenkins pipeline", "jenkins ci"],
+        "terraform": ["tf", "hashicorp terraform"],
+        "ansible": ["ansible playbook", "ansible automation"]
+      }
+    },
+    {
+      "name": "Databases",
+      "keywords": [
+        "sql",
+        "mysql",
+        "postgresql",
+        "mongodb",
+        "redis",
+        "elasticsearch",
+        "oracle"
+      ],
+      "synonyms": {
+        "sql": ["structured query language", "t-sql", "pl/sql"],
+        "mysql": ["maria db", "mariadb"],
+        "postgresql": ["postgres", "psql"],
+        "mongodb": ["mongo", "document db", "nosql"],
+        "redis": ["redis cache", "redis db"],
+        "elasticsearch": ["elastic", "elk stack"],
+        "oracle": ["oracle db", "oracle database", "pl/sql"]
+      }
+    },
+    {
+      "name": "Project Management",
+      "keywords": [
+        "agile",
+        "scrum",
+        "kanban",
+        "jira",
+        "trello",
+        "project management",
+        "team lead"
+      ],
+      "synonyms": {
+        "agile": ["agile methodology", "agile development", "agile project management"],
+        "scrum": ["scrum master", "scrum methodology", "sprint planning"],
+        "kanban": ["kanban board", "kanban methodology"],
+        "jira": ["jira software", "atlassian jira"],
+        "project management": ["project lead", "project coordination", "project leadership"],
+        "team lead": ["team leader", "technical lead", "tech lead"]
+      }
+    },
+    {
+      "name": "Soft Skills",
+      "keywords": [
+        "communication",
+        "leadership",
+        "problem solving",
+        "teamwork",
+        "time management",
+        "adaptability"
+      ],
+      "synonyms": {
+        "communication": ["interpersonal skills", "verbal communication", "written communication"],
+        "leadership": ["team leadership", "people management", "mentoring"],
+        "problem solving": ["analytical thinking", "critical thinking", "troubleshooting"],
+        "teamwork": ["collaboration", "team player", "team collaboration"],
+        "time management": ["organizational skills", "prioritization", "planning"],
+        "adaptability": ["flexibility", "versatility", "agility"]
+      }
+    }
+  ]
+} 
