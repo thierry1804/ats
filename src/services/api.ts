@@ -1,9 +1,15 @@
 const API_URL = 'http://localhost:3000/api';
 
 export interface AnalysisResults {
-  matchScore: number;
-  missingKeywords: string[];
-  strongMatches: string[];
+  matchScore: number | null;
+  missingKeywords?: string[];
+  strongMatches?: string[];
+  skillMatches?: string[];
+  missingSkills?: string[];
+  experienceMatches?: string[];
+  educationMatches?: string[];
+  locationInfo?: any;
+  redFlags?: string[];
   aiAnalysis?: {
     keyFindings: string[];
     suggestedImprovements: string[];

@@ -12,10 +12,50 @@ const AtsSystem: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const calculateMatchScore = (results: AnalysisResults): number => {
+    if (results.matchScore !== null) return results.matchScore;
+
+    let score = 0;
+    let totalWeight = 0;
+
+    // Score basé sur les compétences techniques (40%)
+    if (results.aiAnalysis?.skillsAnalysis) {
+      const technicalSkills = results.aiAnalysis.skillsAnalysis.technical.length;
+      const missingSkills = results.aiAnalysis.skillsAnalysis.missing.length;
+      const totalSkills = technicalSkills + missingSkills;
+      if (totalSkills > 0) {
+        score += (technicalSkills / totalSkills) * 40;
+      }
+      totalWeight += 40;
+    }
+
+    // Score basé sur l'expérience (30%)
+    if (results.aiAnalysis?.experienceAnalysis) {
+      const strengths = results.aiAnalysis.experienceAnalysis.strengths.length;
+      const gaps = results.aiAnalysis.experienceAnalysis.gaps.length;
+      const totalExp = strengths + gaps;
+      if (totalExp > 0) {
+        score += (strengths / totalExp) * 30;
+      }
+      totalWeight += 30;
+    }
+
+    // Score basé sur les red flags (30% inversé)
+    if (results.redFlags) {
+      const redFlagScore = Math.max(0, 30 - (results.redFlags.length * 10));
+      score += redFlagScore;
+      totalWeight += 30;
+    }
+
+    // Normaliser le score si nous avons des poids
+    return totalWeight > 0 ? Math.round((score / totalWeight) * 100) : 0;
+  };
+
   const getScoreColorClass = () => {
     if (!analysisResults) return '';
-    if (analysisResults.matchScore >= 80) return 'bg-green-600';
-    if (analysisResults.matchScore >= 60) return 'bg-yellow-500';
+    const score = calculateMatchScore(analysisResults);
+    if (score >= 80) return 'bg-green-600';
+    if (score >= 60) return 'bg-yellow-500';
     return 'bg-red-500';
   };
 
@@ -213,44 +253,60 @@ const AtsSystem: React.FC = () => {
               <div className="w-full bg-gray-200 rounded-full h-4">
                 <div
                   className={`h-4 rounded-full transition-all duration-500 ${getScoreColorClass()}`}
-                  style={{ width: `${analysisResults.matchScore}%` }}
+                  style={{ width: `${calculateMatchScore(analysisResults)}%` }}
                 />
               </div>
-              <p className="text-right mt-1">{analysisResults.matchScore}%</p>
+              <p className="text-right mt-1">{calculateMatchScore(analysisResults)}%</p>
             </div>
 
             {/* Keyword Analysis */}
             <div className="mb-6">
               <h3 className="font-semibold mb-2">Keyword Analysis</h3>
               <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-600">Strong Matches</h4>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {analysisResults.strongMatches.map((match) => (
-                      <span
-                        key={match}
-                        className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
-                      >
-                        {match}
-                      </span>
-                    ))}
+                {analysisResults.skillMatches && analysisResults.skillMatches.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-600">Strong Matches</h4>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {analysisResults.skillMatches.map((match) => (
+                        <span
+                          key={match}
+                          className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                        >
+                          {match}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-600">Missing Keywords</h4>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {analysisResults.missingKeywords.map((keyword) => (
-                      <span
-                        key={keyword}
-                        className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
+                )}
+                {analysisResults.missingSkills && analysisResults.missingSkills.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-600">Missing Skills</h4>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {analysisResults.missingSkills.map((skill) => (
+                        <span
+                          key={skill}
+                          className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
+
+            {/* Red Flags */}
+            {analysisResults.redFlags && analysisResults.redFlags.length > 0 && (
+              <div className="mb-6">
+                <h3 className="font-semibold mb-2">Points d'attention</h3>
+                <ul className="list-disc pl-5 space-y-2">
+                  {analysisResults.redFlags.map((flag, index) => (
+                    <li key={index} className="text-red-600">{flag}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* AI Analysis */}
             {analysisResults.aiAnalysis && (
@@ -362,7 +418,7 @@ const AtsSystem: React.FC = () => {
       )}
 
       {/* Multiple Analysis Results */}
-      {multipleAnalysisResults && multipleAnalysisResults.comparison && (
+      {multipleAnalysisResults?.comparison && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-3">Comparative Analysis Results</h2>
           
@@ -371,7 +427,7 @@ const AtsSystem: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">Global Comparison</h3>
             
             {/* Ranking */}
-            {multipleAnalysisResults.comparison.ranking && multipleAnalysisResults.comparison.ranking.length > 0 && (
+            {multipleAnalysisResults.comparison?.ranking?.length > 0 && (
               <div className="mb-6">
                 <h4 className="font-semibold mb-2">Candidate Ranking</h4>
                 <ul className="space-y-2">
@@ -385,7 +441,7 @@ const AtsSystem: React.FC = () => {
             )}
 
             {/* Strength Comparison */}
-            {multipleAnalysisResults.comparison.strengthComparison && multipleAnalysisResults.comparison.strengthComparison.length > 0 && (
+            {multipleAnalysisResults.comparison?.strengthComparison && multipleAnalysisResults.comparison.strengthComparison.length > 0 && (
               <div className="mb-6">
                 <h4 className="font-semibold mb-2">Comparative Analysis</h4>
                 <ul className="list-disc pl-5 space-y-2">
@@ -397,7 +453,7 @@ const AtsSystem: React.FC = () => {
             )}
 
             {/* Recommendations */}
-            {multipleAnalysisResults.comparison.recommendations && multipleAnalysisResults.comparison.recommendations.length > 0 && (
+            {multipleAnalysisResults.comparison?.recommendations && multipleAnalysisResults.comparison.recommendations.length > 0 && (
               <div className="mb-6">
                 <h4 className="font-semibold mb-2">Global Recommendations</h4>
                 <ul className="list-disc pl-5 space-y-2">
@@ -417,11 +473,11 @@ const AtsSystem: React.FC = () => {
                 <h4 className="text-lg font-semibold mb-4 pb-2 border-b">
                   {candidateName}
                   <span className={`ml-4 px-3 py-1 rounded-full text-sm ${
-                    analysis.matchScore >= 80 ? 'bg-green-100 text-green-800' :
-                    analysis.matchScore >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                    calculateMatchScore(analysis) >= 80 ? 'bg-green-100 text-green-800' :
+                    calculateMatchScore(analysis) >= 60 ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
                   }`}>
-                    Match Score: {analysis.matchScore}%
+                    Match Score: {calculateMatchScore(analysis)}%
                   </span>
                 </h4>
 
@@ -440,28 +496,32 @@ const AtsSystem: React.FC = () => {
                 {/* Keywords Analysis */}
                 <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Strong Matches */}
+                  {analysis.skillMatches && analysis.skillMatches.length > 0 && (
                   <div>
                     <h5 className="font-semibold mb-2">Strong Matches</h5>
                     <div className="flex flex-wrap gap-2">
-                      {analysis.strongMatches.map((match, idx) => (
+                        {analysis.skillMatches.map((match, idx) => (
                         <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
                           {match}
                         </span>
                       ))}
                     </div>
                   </div>
+                  )}
 
-                  {/* Missing Keywords */}
+                  {/* Missing Skills */}
+                  {analysis.missingSkills && analysis.missingSkills.length > 0 && (
                   <div>
-                    <h5 className="font-semibold mb-2">Missing Keywords</h5>
+                      <h5 className="font-semibold mb-2">Missing Skills</h5>
                     <div className="flex flex-wrap gap-2">
-                      {analysis.missingKeywords.map((keyword, idx) => (
+                        {analysis.missingSkills.map((skill, idx) => (
                         <span key={idx} className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm">
-                          {keyword}
+                            {skill}
                         </span>
                       ))}
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* Skills Analysis */}
