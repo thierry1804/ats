@@ -31,7 +31,7 @@ export async function generateOptimizedPDF(
   const chunks: Buffer[] = [];
 
   // Collect PDF data chunks
-  doc.on('data', (chunk) => chunks.push(chunk));
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
 
   try {
     // Extract original resume text

@@ -13,7 +13,10 @@ const AtsSystem: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const calculateMatchScore = (results: AnalysisResults): number => {
-    if (results.matchScore !== null) return results.matchScore;
+    // Si le score est déjà calculé, l'utiliser directement
+    if (results.matchScore !== null && results.matchScore !== undefined) {
+      return results.matchScore;
+    }
 
     let score = 0;
     let totalWeight = 0;
@@ -27,6 +30,16 @@ const AtsSystem: React.FC = () => {
         score += (technicalSkills / totalSkills) * 40;
       }
       totalWeight += 40;
+    } else if (results.skillMatches && results.missingSkills) {
+      // Utiliser les données alternatives si disponibles
+      const skillMatches = results.skillMatches.length;
+      const missingSkills = results.missingSkills.length;
+      const totalSkills = skillMatches + missingSkills;
+      
+      if (totalSkills > 0) {
+        score += (skillMatches / totalSkills) * 40;
+      }
+      totalWeight += 40;
     }
 
     // Score basé sur l'expérience (30%)
@@ -38,12 +51,20 @@ const AtsSystem: React.FC = () => {
         score += (strengths / totalExp) * 30;
       }
       totalWeight += 30;
+    } else if (results.experienceMatches) {
+      // Valeur par défaut si nous avons des correspondances d'expérience
+      score += 15;
+      totalWeight += 30;
     }
 
     // Score basé sur les red flags (30% inversé)
     if (results.redFlags) {
       const redFlagScore = Math.max(0, 30 - (results.redFlags.length * 10));
       score += redFlagScore;
+      totalWeight += 30;
+    } else {
+      // Si pas de red flags, score maximum pour cette catégorie
+      score += 30;
       totalWeight += 30;
     }
 
@@ -52,31 +73,90 @@ const AtsSystem: React.FC = () => {
   };
 
   const calculateScoreDetails = (results: AnalysisResults) => {
-    const technicalScore = results.aiAnalysis?.skillsAnalysis ? 
-      Math.round((results.aiAnalysis.skillsAnalysis.technical.length / 
-        (results.aiAnalysis.skillsAnalysis.technical.length + 
-         results.aiAnalysis.skillsAnalysis.missing.length || 1)) * 40) : 0;
+    // Vérifier si les données d'analyse sont disponibles
+    const hasTechnicalAnalysis = results.aiAnalysis?.skillsAnalysis && 
+      (results.aiAnalysis.skillsAnalysis.technical.length > 0 || 
+       results.aiAnalysis.skillsAnalysis.missing.length > 0);
+    
+    const hasExperienceAnalysis = results.aiAnalysis?.experienceAnalysis && 
+      (results.aiAnalysis.experienceAnalysis.strengths.length > 0 || 
+       results.aiAnalysis.experienceAnalysis.gaps.length > 0);
 
-    const experienceScore = results.aiAnalysis?.experienceAnalysis ? 
-      Math.round((results.aiAnalysis.experienceAnalysis.strengths.length / 
-        (results.aiAnalysis.experienceAnalysis.strengths.length + 
-         results.aiAnalysis.experienceAnalysis.gaps.length || 1)) * 30) : 0;
+    // Calculer le score technique
+    let technicalScore = 0;
+    if (hasTechnicalAnalysis) {
+      const technicalSkills = results.aiAnalysis!.skillsAnalysis.technical.length;
+      const missingSkills = results.aiAnalysis!.skillsAnalysis.missing.length;
+      const totalSkills = technicalSkills + missingSkills;
+      
+      if (totalSkills > 0) {
+        technicalScore = Math.round((technicalSkills / totalSkills) * 40);
+      } else if (results.skillMatches && results.missingSkills) {
+        // Utiliser les données alternatives si disponibles
+        const skillMatches = results.skillMatches.length;
+        const missingSkills = results.missingSkills.length;
+        const totalSkills = skillMatches + missingSkills;
+        
+        if (totalSkills > 0) {
+          technicalScore = Math.round((skillMatches / totalSkills) * 40);
+        }
+      }
+    } else if (results.skillMatches && results.missingSkills) {
+      // Utiliser les données alternatives si disponibles
+      const skillMatches = results.skillMatches.length;
+      const missingSkills = results.missingSkills.length;
+      const totalSkills = skillMatches + missingSkills;
+      
+      if (totalSkills > 0) {
+        technicalScore = Math.round((skillMatches / totalSkills) * 40);
+      }
+    }
 
+    // Calculer le score d'expérience
+    let experienceScore = 0;
+    if (hasExperienceAnalysis) {
+      const strengths = results.aiAnalysis!.experienceAnalysis.strengths.length;
+      const gaps = results.aiAnalysis!.experienceAnalysis.gaps.length;
+      const totalExp = strengths + gaps;
+      
+      if (totalExp > 0) {
+        experienceScore = Math.round((strengths / totalExp) * 30);
+      }
+    } else if (results.experienceMatches) {
+      // Utiliser les données alternatives si disponibles
+      experienceScore = 15; // Valeur par défaut si nous avons des correspondances d'expérience
+    }
+
+    // Calculer le score des red flags
     const redFlagScore = results.redFlags ? 
       Math.max(0, 30 - (results.redFlags.length * 10)) : 30;
+
+    // Si le score global est disponible mais les détails ne sont pas calculables,
+    // répartir le score global proportionnellement
+    if (!hasTechnicalAnalysis && !hasExperienceAnalysis && results.matchScore) {
+      const totalScore = results.matchScore;
+      technicalScore = Math.round(totalScore * 0.4); // 40% du score total
+      experienceScore = Math.round(totalScore * 0.3); // 30% du score total
+    }
 
     return {
       technical: {
         score: technicalScore,
-        present: results.aiAnalysis?.skillsAnalysis.technical.length || 0,
-        total: (results.aiAnalysis?.skillsAnalysis.technical.length || 0) + 
-               (results.aiAnalysis?.skillsAnalysis.missing.length || 0)
+        present: hasTechnicalAnalysis ? results.aiAnalysis!.skillsAnalysis.technical.length : 
+                (results.skillMatches ? results.skillMatches.length : 0),
+        total: hasTechnicalAnalysis ? 
+                (results.aiAnalysis!.skillsAnalysis.technical.length + 
+                 results.aiAnalysis!.skillsAnalysis.missing.length) : 
+                ((results.skillMatches ? results.skillMatches.length : 0) + 
+                 (results.missingSkills ? results.missingSkills.length : 0))
       },
       experience: {
         score: experienceScore,
-        strengths: results.aiAnalysis?.experienceAnalysis.strengths.length || 0,
-        total: (results.aiAnalysis?.experienceAnalysis.strengths.length || 0) + 
-               (results.aiAnalysis?.experienceAnalysis.gaps.length || 0)
+        strengths: hasExperienceAnalysis ? results.aiAnalysis!.experienceAnalysis.strengths.length : 0,
+        total: hasExperienceAnalysis ? 
+                (results.aiAnalysis!.experienceAnalysis.strengths.length + 
+                 results.aiAnalysis!.experienceAnalysis.gaps.length) : 
+                (results.experienceMatches ? results.experienceMatches.length : 0)
       },
       redFlags: {
         score: redFlagScore,
@@ -89,7 +169,7 @@ const AtsSystem: React.FC = () => {
   const getScoreColorClass = () => {
     if (!analysisResults) return '';
     const score = calculateMatchScore(analysisResults);
-    if (score >= 80) return 'bg-green-600';
+    if (score >= 80) return 'bg-green-500';
     if (score >= 60) return 'bg-yellow-500';
     return 'bg-red-500';
   };
@@ -193,462 +273,372 @@ const AtsSystem: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="w-full">
       <h1 className="text-3xl font-bold text-center mb-8">ATS Resume Analyzer</h1>
       
       {error && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
-          {error}
+        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200 shadow-sm animate-fade-in">
+          <div className="flex items-center">
+            <i className="fas fa-exclamation-circle mr-2 text-red-500"></i>
+            <span>{error}</span>
+          </div>
         </div>
       )}
       
-      {/* Job Description Input */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-3">Job Description</h2>
-        <textarea
-          value={jobDescription}
-          onChange={(e) => setJobDescription(e.target.value)}
-          placeholder="Paste the job description here..."
-          className="w-full h-48 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-
-      {/* Resume Upload */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-3">Upload Resumes</h2>
-        <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors ${
-            isDragging ? 'border-blue-500 bg-blue-50' : ''
-          }`}
-          onDragEnter={() => setIsDragging(true)}
-          onDragLeave={() => setIsDragging(false)}
-        >
-          <div>
-            <i className="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3" />
-            <p className="text-gray-600">Drag and drop your resumes here or</p>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              accept=".pdf,.doc,.docx"
-              multiple
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+      {/* Main two-column layout */}
+      <div className="flex flex-col lg:flex-row w-full gap-6">
+        {/* Left Column - 1/3 width */}
+        <div className="w-full lg:w-1/3 space-y-6">
+          {/* Resume Upload */}
+          <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 card-hover">
+            <h2 className="text-xl font-semibold mb-3 text-secondary-dark">Upload Resumes</h2>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                isDragging ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-primary hover:bg-primary/5'
+              }`}
+              onDragEnter={() => setIsDragging(true)}
+              onDragLeave={() => setIsDragging(false)}
             >
-              Browse Files
+              <div>
+                <i className="fas fa-cloud-upload-alt text-4xl text-primary mb-3" />
+                <p className="text-gray-600">Drag and drop your resumes here or</p>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept=".pdf,.doc,.docx"
+                  multiple
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-primary mt-2"
+                >
+                  Browse Files
+                </button>
+              </div>
+            </div>
+
+            {/* Selected Files List */}
+            {selectedFiles.length > 0 && (
+              <div className="mt-4 animate-fade-in">
+                <h3 className="font-semibold mb-2 text-gray-700">Selected Files:</h3>
+                <div className="space-y-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <span className="flex items-center">
+                        <i className="fas fa-file-alt text-primary mr-2"></i>
+                        {file.name}
+                      </span>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <i className="fas fa-times" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Job Description Input */}
+          <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 card-hover">
+            <h2 className="text-xl font-semibold mb-3 text-secondary-dark">Job Description</h2>
+            <textarea
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              placeholder="Paste the job description here..."
+              className="w-full h-48 p-4 border border-gray-200 rounded-lg focus-ring resize-none"
+            />
+          </div>
+
+          {/* Analyze Button */}
+          <div className="text-center">
+            <button
+              onClick={handleAnalyzeResumes}
+              disabled={!canAnalyze || isLoading}
+              className="btn-secondary px-6 py-3 w-full disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Analyzing...
+                </span>
+              ) : (
+                `Analyze Resume${selectedFiles.length > 1 ? 's' : ''}`
+              )}
             </button>
           </div>
         </div>
 
-        {/* Selected Files List */}
-        {selectedFiles.length > 0 && (
-          <div className="mt-4">
-            <h3 className="font-semibold mb-2">Selected Files:</h3>
-            <div className="space-y-2">
-              {selectedFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                  <span>{file.name}</span>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="text-red-500 hover:text-red-600"
-                  >
-                    <i className="fas fa-times" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Analyze Button */}
-      <div className="mb-8 text-center">
-        <button
-          onClick={handleAnalyzeResumes}
-          disabled={!canAnalyze || isLoading}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Analyzing...' : `Analyze Resume${selectedFiles.length > 1 ? 's' : ''}`}
-        </button>
-      </div>
-
-      {/* Analysis Results */}
-      {analysisResults && (
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-3">Analysis Results</h2>
-          <div className="bg-white rounded-lg shadow p-6">
-            {/* Match Score */}
-            <div className="mb-4">
-              <h3 className="font-semibold mb-2">Match Score</h3>
-              <div className="w-full bg-gray-200 rounded-full h-4">
-                <div
-                  className={`h-4 rounded-full transition-all duration-500 ${getScoreColorClass()}`}
-                  style={{ width: `${calculateMatchScore(analysisResults)}%` }}
-                />
-              </div>
-              <p className="text-right mt-1">{calculateMatchScore(analysisResults)}%</p>
-
-              {/* Détail du Score */}
-              <div className="mt-4 bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-600 mb-3">Détail du Score</h4>
-                {(() => {
-                  const details = calculateScoreDetails(analysisResults);
-                  return (
-                    <div className="space-y-2">
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Compétences Techniques (40%)</span>
-                          <span className="font-medium">{details.technical.score}%</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {details.technical.present} compétences présentes / {details.technical.total} requises
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Expérience (30%)</span>
-                          <span className="font-medium">{details.experience.score}%</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {details.experience.strengths} points forts / {details.experience.total} critères
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Points d'attention (30%)</span>
-                          <span className="font-medium">{details.redFlags.score}%</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {details.redFlags.count} points d'attention détectés
-                          {details.redFlags.count ? 
-                            ` (-${details.redFlags.penalty}%)` : 
-                            ' (pas de pénalité)'}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Keyword Analysis */}
-            <div className="mb-6">
-              <h3 className="font-semibold mb-2">Keyword Analysis</h3>
-              <div className="space-y-4">
-                {analysisResults.skillMatches && analysisResults.skillMatches.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600">Strong Matches</h4>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {analysisResults.skillMatches.map((match) => (
-                        <span
-                          key={match}
-                          className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
-                        >
-                          {match}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {analysisResults.missingSkills && analysisResults.missingSkills.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600">Missing Skills</h4>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {analysisResults.missingSkills.map((skill) => (
-                        <span
-                          key={skill}
-                          className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Red Flags */}
-            {analysisResults.redFlags && analysisResults.redFlags.length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-semibold mb-2">Points d'attention</h3>
-                <ul className="list-disc pl-5 space-y-2">
-                  {analysisResults.redFlags.map((flag, index) => (
-                    <li key={index} className="text-red-600">{flag}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* AI Analysis */}
-            {analysisResults.aiAnalysis && (
-              <>
-                {/* Key Findings */}
-                <div className="mb-6">
-                  <h3 className="font-semibold mb-2">Key Findings</h3>
-                  <ul className="list-disc pl-5 space-y-2">
-                    {analysisResults.aiAnalysis.keyFindings.map((finding, index) => (
-                      <li key={index} className="text-gray-700">{finding}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Suggested Improvements */}
-                <div className="mb-6">
-                  <h3 className="font-semibold mb-2">Suggested Improvements</h3>
-                  <ul className="list-disc pl-5 space-y-2">
-                    {analysisResults.aiAnalysis.suggestedImprovements.map((improvement, index) => (
-                      <li key={index} className="text-gray-700">{improvement}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Skills Analysis */}
-                <div className="mb-6">
-                  <h3 className="font-semibold mb-2">Skills Analysis</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Technical Skills</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {analysisResults.aiAnalysis.skillsAnalysis.technical.map((skill, index) => (
-                          <li key={index} className="text-gray-700">{skill}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Soft Skills</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {analysisResults.aiAnalysis.skillsAnalysis.soft.map((skill, index) => (
-                          <li key={index} className="text-gray-700">{skill}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Missing Skills</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {analysisResults.aiAnalysis.skillsAnalysis.missing.map((skill, index) => (
-                          <li key={index} className="text-gray-700">{skill}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Recommendations</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {analysisResults.aiAnalysis.skillsAnalysis.recommendations.map((rec, index) => (
-                          <li key={index} className="text-gray-700">{rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Experience Analysis */}
-                <div className="mb-6">
-                  <h3 className="font-semibold mb-2">Experience Analysis</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Strengths</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {analysisResults.aiAnalysis.experienceAnalysis.strengths.map((strength, index) => (
-                          <li key={index} className="text-gray-700">{strength}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Gaps</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {analysisResults.aiAnalysis.experienceAnalysis.gaps.map((gap, index) => (
-                          <li key={index} className="text-gray-700">{gap}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="md:col-span-2">
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Recommendations</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {analysisResults.aiAnalysis.experienceAnalysis.recommendations.map((rec, index) => (
-                          <li key={index} className="text-gray-700">{rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Actions */}
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={handleGeneratePDF}
-                disabled={isLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isLoading ? 'Generating...' : 'Generate Optimized PDF'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Multiple Analysis Results */}
-      {multipleAnalysisResults?.comparison && (
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-3">Comparative Analysis Results</h2>
-          
-          {/* Global Comparison */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-4">Global Comparison</h3>
-            
-            {/* Ranking */}
-            {multipleAnalysisResults.comparison?.ranking?.length > 0 && (
-              <div className="mb-6">
-                <h4 className="font-semibold mb-2">Candidate Ranking</h4>
-                <ul className="space-y-2">
-                  {safeMap(multipleAnalysisResults.comparison.ranking, (rank: string, index: number) => (
-                    <li key={index} className="p-2 bg-gray-50 rounded">
-                      {rank}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Strength Comparison */}
-            {multipleAnalysisResults.comparison?.strengthComparison && multipleAnalysisResults.comparison.strengthComparison.length > 0 && (
-              <div className="mb-6">
-                <h4 className="font-semibold mb-2">Comparative Analysis</h4>
-                <ul className="list-disc pl-5 space-y-2">
-                  {safeMap(multipleAnalysisResults.comparison.strengthComparison, (comparison: string, index: number) => (
-                    <li key={index} className="text-gray-700">{comparison}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Recommendations */}
-            {multipleAnalysisResults.comparison?.recommendations && multipleAnalysisResults.comparison.recommendations.length > 0 && (
-              <div className="mb-6">
-                <h4 className="font-semibold mb-2">Global Recommendations</h4>
-                <ul className="list-disc pl-5 space-y-2">
-                  {safeMap(multipleAnalysisResults.comparison.recommendations, (recommendation: string, index: number) => (
-                    <li key={index} className="text-gray-700">{recommendation}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          {/* Individual Analyses */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Individual Analyses</h3>
-            {Object.entries(multipleAnalysisResults.candidates).map(([candidateName, analysis]) => (
-              <div key={candidateName} className="bg-white rounded-lg shadow p-6">
-                <h4 className="text-lg font-semibold mb-4 pb-2 border-b">
-                  {candidateName}
-                  <span className={`ml-4 px-3 py-1 rounded-full text-sm ${
-                    calculateMatchScore(analysis) >= 80 ? 'bg-green-100 text-green-800' :
-                    calculateMatchScore(analysis) >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    Match Score: {calculateMatchScore(analysis)}%
+        {/* Right Column - 2/3 width */}
+        <div className="w-full lg:w-2/3">
+          {/* Analysis Results */}
+          {analysisResults ? (
+            <div className="animate-fade-in">
+              <h2 className="text-xl font-semibold mb-3 text-secondary-dark">Analysis Results</h2>
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 card-hover">
+                {/* Header with Model Info and Score */}
+                <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary-dark mb-3 md:mb-0">
+                    <i className="fas fa-robot mr-1"></i> Powered by Gemini Pro
                   </span>
-                </h4>
-
-                {/* Key Findings */}
-                {analysis.aiAnalysis?.keyFindings && analysis.aiAnalysis.keyFindings.length > 0 && (
-                  <div className="mb-4">
-                    <h5 className="font-semibold mb-2">Key Findings</h5>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {analysis.aiAnalysis.keyFindings.map((finding, idx) => (
-                        <li key={idx} className="text-gray-700">{finding}</li>
-                      ))}
-                    </ul>
+                  
+                  <div className="flex items-center">
+                    <span className="mr-2 font-semibold">Match Score:</span>
+                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                      calculateMatchScore(analysisResults) >= 80 ? 'bg-green-100 text-green-800' :
+                      calculateMatchScore(analysisResults) >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {calculateMatchScore(analysisResults)}%
+                    </span>
                   </div>
-                )}
-
-                {/* Keywords Analysis */}
-                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Strong Matches */}
-                  {analysis.skillMatches && analysis.skillMatches.length > 0 && (
-                  <div>
-                    <h5 className="font-semibold mb-2">Strong Matches</h5>
-                    <div className="flex flex-wrap gap-2">
-                        {analysis.skillMatches.map((match, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                          {match}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  )}
-
-                  {/* Missing Skills */}
-                  {analysis.missingSkills && analysis.missingSkills.length > 0 && (
-                  <div>
-                      <h5 className="font-semibold mb-2">Missing Skills</h5>
-                    <div className="flex flex-wrap gap-2">
-                        {analysis.missingSkills.map((skill, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm">
-                            {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  )}
                 </div>
+                
+                {/* Main Content */}
+                <div className="space-y-6">
+                  {/* Score Details */}
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <h4 className="text-sm font-medium text-gray-600 mb-3">Score Details</h4>
+                    {(() => {
+                      const details = calculateScoreDetails(analysisResults);
+                      return (
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="font-medium text-primary-dark">Technical Skills (40%)</span>
+                              <span className="font-medium">{details.technical.score}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                              <div
+                                className="h-2 rounded-full bg-primary"
+                                style={{ width: `${details.technical.score / 40 * 100}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {details.technical.present} skills present / {details.technical.total} required
+                            </div>
+                          </div>
 
-                {/* Skills Analysis */}
-                {analysis.aiAnalysis?.skillsAnalysis && (
-                  <div className="mb-4">
-                    <h5 className="font-semibold mb-2">Skills Analysis</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Technical Skills */}
-                      <div>
-                        <h6 className="text-sm font-medium text-gray-600 mb-1">Technical Skills</h6>
-                        <ul className="list-disc pl-5 space-y-1">
-                          {analysis.aiAnalysis.skillsAnalysis.technical.map((skill, idx) => (
-                            <li key={idx} className="text-gray-700">{skill}</li>
-                          ))}
-                        </ul>
+                          <div>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="font-medium text-secondary">Experience (30%)</span>
+                              <span className="font-medium">{details.experience.score}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                              <div
+                                className="h-2 rounded-full bg-secondary"
+                                style={{ width: `${details.experience.score / 30 * 100}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {details.experience.strengths} strengths / {details.experience.total} criteria
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="font-medium text-secondary-light">Attention Points (30%)</span>
+                              <span className="font-medium">{details.redFlags.score}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                              <div
+                                className="h-2 rounded-full bg-secondary-light"
+                                style={{ width: `${details.redFlags.score / 30 * 100}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {details.redFlags.count} attention points detected
+                              {details.redFlags.count ? 
+                                ` (-${details.redFlags.penalty}%)` : 
+                                ' (no penalty)'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Two columns for the analysis details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Left column of analysis */}
+                    <div className="space-y-4">
+                      {/* Key Recommendations */}
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <h3 className="font-semibold mb-2 text-secondary">Key Recommendations</h3>
+                        {(analysisResults.aiAnalysis?.suggestedImprovements && analysisResults.aiAnalysis.suggestedImprovements.length > 0) ||
+                         (analysisResults.aiAnalysis?.skillsAnalysis?.recommendations && analysisResults.aiAnalysis.skillsAnalysis.recommendations.length > 0) ||
+                         (analysisResults.aiAnalysis?.experienceAnalysis?.recommendations && analysisResults.aiAnalysis.experienceAnalysis.recommendations.length > 0) ? (
+                          <ul className="list-disc pl-5 space-y-1 text-sm">
+                            {analysisResults.aiAnalysis?.suggestedImprovements?.slice(0, 3).map((improvement, index) => (
+                              <li key={index} className="text-gray-700">{improvement}</li>
+                            ))}
+                            {analysisResults.aiAnalysis?.skillsAnalysis?.recommendations?.slice(0, 2).map((rec, index) => (
+                              <li key={`skill-${index}`} className="text-gray-700">{rec}</li>
+                            ))}
+                            {analysisResults.aiAnalysis?.experienceAnalysis?.recommendations?.slice(0, 2).map((rec, index) => (
+                              <li key={`exp-${index}`} className="text-gray-700">{rec}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div>
+                            <p className="text-sm text-gray-700 mb-2">Voici quelques recommandations générales pour améliorer votre CV :</p>
+                            <ul className="list-disc pl-5 space-y-1 text-sm">
+                              <li className="text-gray-700">Ajoutez les compétences manquantes identifiées dans l'analyse</li>
+                              <li className="text-gray-700">Mettez en avant vos réalisations avec des résultats quantifiables</li>
+                              <li className="text-gray-700">Adaptez votre CV pour qu'il corresponde mieux aux mots-clés de l'offre d'emploi</li>
+                              <li className="text-gray-700">Incluez des projets pertinents qui démontrent vos compétences techniques</li>
+                              <li className="text-gray-700">Utilisez des termes et technologies spécifiques mentionnés dans l'offre</li>
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Soft Skills */}
-                      {analysis.aiAnalysis.skillsAnalysis.soft.length > 0 && (
-                        <div>
-                          <h6 className="text-sm font-medium text-gray-600 mb-1">Soft Skills</h6>
-                          <ul className="list-disc pl-5 space-y-1">
-                            {analysis.aiAnalysis.skillsAnalysis.soft.map((skill, idx) => (
-                              <li key={idx} className="text-gray-700">{skill}</li>
+                      {/* Red Flags */}
+                      {analysisResults.redFlags && analysisResults.redFlags.length > 0 ? (
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                          <h3 className="font-semibold mb-2 text-red-600">Attention Points</h3>
+                          <ul className="list-disc pl-5 space-y-1 text-sm">
+                            {analysisResults.redFlags.map((flag, index) => (
+                              <li key={index} className="text-red-600">{flag}</li>
                             ))}
                           </ul>
                         </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                          <h3 className="font-semibold mb-2 text-green-600">Attention Points</h3>
+                          <p className="text-sm text-gray-700">Aucun point d'attention n'a été identifié dans votre CV par rapport à ce poste.</p>
+                        </div>
                       )}
                     </div>
-                  </div>
-                )}
 
-                {/* Improvements */}
-                {analysis.aiAnalysis?.suggestedImprovements && analysis.aiAnalysis.suggestedImprovements.length > 0 && (
-                  <div className="mb-4">
-                    <h5 className="font-semibold mb-2">Suggested Improvements</h5>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {analysis.aiAnalysis.suggestedImprovements.map((improvement, idx) => (
-                        <li key={idx} className="text-gray-700">{improvement}</li>
-                      ))}
-                    </ul>
+                    {/* Right column of analysis */}
+                    <div className="space-y-4">
+                      {/* Keyword Analysis */}
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <h3 className="font-semibold mb-2 text-gray-700">Keyword Analysis</h3>
+                        <div className="space-y-3">
+                          {analysisResults.skillMatches && analysisResults.skillMatches.length > 0 ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-primary-dark mb-1">Strong Matches</h4>
+                              <div className="flex flex-wrap gap-1">
+                                {analysisResults.skillMatches.map((match) => (
+                                  <span
+                                    key={match}
+                                    className="badge badge-primary"
+                                  >
+                                    {match}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <h4 className="text-sm font-medium text-primary-dark mb-1">Strong Matches</h4>
+                              <p className="text-sm text-gray-700">Aucune correspondance forte n'a été identifiée. Essayez d'inclure plus de mots-clés de l'offre d'emploi dans votre CV.</p>
+                            </div>
+                          )}
+                          {analysisResults.missingSkills && analysisResults.missingSkills.length > 0 ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-red-600 mb-1">Missing Skills</h4>
+                              <div className="flex flex-wrap gap-1">
+                                {analysisResults.missingSkills.map((skill) => (
+                                  <span
+                                    key={skill}
+                                    className="px-2 py-0.5 bg-red-100 text-red-600 rounded-full text-xs"
+                                  >
+                                    {skill}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <h4 className="text-sm font-medium text-green-600 mb-1">Missing Skills</h4>
+                              <p className="text-sm text-gray-700">Aucune compétence manquante n'a été identifiée. Votre CV semble bien correspondre aux exigences du poste.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Experience Summary */}
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <h3 className="font-semibold mb-2 text-secondary">Experience Summary</h3>
+                        {analysisResults.aiAnalysis?.experienceAnalysis?.strengths && 
+                         analysisResults.aiAnalysis.experienceAnalysis.strengths.length > 0 ? (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-1">Points forts :</h4>
+                            <ul className="list-disc pl-5 space-y-1 text-sm mb-3">
+                              {analysisResults.aiAnalysis.experienceAnalysis.strengths.map((strength, index) => (
+                                <li key={index} className="text-gray-700">{strength}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-sm text-gray-700 mb-2">Aucun point fort spécifique n'a été identifié dans votre expérience.</p>
+                            <p className="text-sm text-gray-700">Assurez-vous que votre CV détaille clairement vos responsabilités et réalisations pour chaque poste.</p>
+                          </div>
+                        )}
+                        
+                        {analysisResults.aiAnalysis?.experienceAnalysis?.gaps && 
+                         analysisResults.aiAnalysis.experienceAnalysis.gaps.length > 0 ? (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-1">Lacunes identifiées :</h4>
+                            <ul className="list-disc pl-5 space-y-1 text-sm">
+                              {analysisResults.aiAnalysis.experienceAnalysis.gaps.map((gap, index) => (
+                                <li key={index} className="text-gray-700">{gap}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-sm text-gray-700">Aucune lacune majeure n'a été identifiée dans votre expérience professionnelle par rapport à ce poste.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
+
+                  {/* Generate PDF Button */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGeneratePDF}
+                      disabled={isLoading}
+                      className="btn-secondary flex items-center"
+                    >
+                      {isLoading ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin mr-2"></i>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-file-pdf mr-2"></i>
+                          Generate Optimized PDF
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-md p-8 border border-gray-100 card-hover text-center h-full flex flex-col justify-center items-center">
+              <i className="fas fa-file-search text-6xl text-gray-300 mb-4"></i>
+              <h3 className="text-xl font-semibold text-gray-500 mb-2">No Analysis Results Yet</h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                Upload your resume and paste a job description, then click "Analyze Resume" to see how well your resume matches the job requirements.
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

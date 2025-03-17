@@ -6,7 +6,7 @@ import { analyzeResume, analyzeMultipleCandidates } from './services/resumeAnaly
 import { generateOptimizedPDF } from './services/pdfGenerator';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors());
